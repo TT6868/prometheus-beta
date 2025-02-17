@@ -24,28 +24,36 @@ def log_array_as_table(arr, headers=None):
     # Determine if we're dealing with nested lists/dicts or flat lists
     is_nested = any(isinstance(item, (list, dict)) for item in arr)
     
-    # Convert all items to strings for consistent formatting
+    # Formatting preparation
     if is_nested:
-        # For nested structures, convert to string representation
-        formatted_arr = [str(item) for item in arr]
+        # Ensure uniform length nested list
+        max_len = max(len(item) if isinstance(item, (list, dict)) else 1 for item in arr)
+        formatted_arr = [list(item) if isinstance(item, (list, dict)) else [item] + [None] * (max_len - 1) for item in arr]
     else:
-        # For flat lists, keep as-is
-        formatted_arr = arr
-    
+        # For flat lists, add index column
+        formatted_arr = list(enumerate(arr))
+        
     # Header handling
     if headers is None:
         if is_nested:
-            # If no headers provided for nested data, use indices
-            headers = list(range(len(formatted_arr[0]) if formatted_arr else 0))
+            # Use range for nested data
+            headers = list(range(len(formatted_arr[0])))
         else:
-            # For flat lists, use index as header
+            # Use predefined headers for flat lists
             headers = ['Index', 'Value']
-            formatted_arr = list(enumerate(formatted_arr))
-    elif len(headers) != (len(formatted_arr[0]) if is_nested else 2):
+    
+    # Validate headers
+    if len(headers) != len(formatted_arr[0]):
         raise ValueError("Headers length must match data structure")
     
-    # Calculate column widths
-    col_widths = [max(len(str(item)) for item in col) for col in zip(*formatted_arr, headers)]
+    # Convert everything to string
+    str_formatted_arr = [[str(item) if item is not None else '' for item in row] for row in formatted_arr]
+    
+    # Calculate column widths (including headers)
+    col_widths = [
+        max(len(str(header)), max(len(row[i]) for row in str_formatted_arr)) 
+        for i, header in enumerate(headers)
+    ]
     
     # Create table format
     def format_row(row):
@@ -56,6 +64,6 @@ def log_array_as_table(arr, headers=None):
         format_row(headers),  # Header row
         "-" * (sum(col_widths) + 3 * (len(col_widths) - 1))  # Separator
     ]
-    table_lines.extend(format_row(row) for row in formatted_arr)
+    table_lines.extend(format_row(row) for row in str_formatted_arr)
     
     return "\n".join(table_lines)
