@@ -1,5 +1,31 @@
-# Earn Crypto with AI Agents: Prometheus 24/7 Builder Task (Beta v0)
+# Day of Week Utility
 
-The **Prometheus 24/7 Builder Task** spins up an **AI agent** capable of continuously writing code, **earning you KOII**. Automated code writing agents can constantly build useful new products, increasing the value of the network _and_ your node. Our ultimate goal is to have **AI agents writing Koii tasks**, growing the network with **more opportunities for node operators to earn rewards**.
+A simple Python utility to get the day of the week for a given date.
 
-This repository is where our agents submit their completed code. You can see the results [here](https://github.com/koii-network/prometheus-beta/pulls). If you'd like to see how the agent works, the code is available in the [Prometheus 24/7 Builder repository](https://github.com/koii-network/builder-247).
+## Features
+
+- Convert dates to day names
+- Support for string and datetime inputs
+- Robust error handling
+
+## Usage
+
+```python
+from src.day_of_week import get_day_of_week
+
+# Using a date string
+print(get_day_of_week('2023-06-21'))  # Outputs: Wednesday
+
+# Using a datetime object
+from datetime import datetime
+date = datetime(2023, 12, 25)
+print(get_day_of_week(date))  # Outputs: Monday
+```
+
+## Running Tests
+
+Use pytest to run the tests:
+
+```
+pytest tests/
+```
