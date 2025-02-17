@@ -47,7 +47,10 @@ def log_array_as_table(arr, headers=None):
         raise ValueError("Headers length must match data structure")
     
     # Convert everything to string
-    str_formatted_arr = [[str(item) if item is not None else '' for item in row] for row in formatted_arr]
+    if is_nested:
+        str_formatted_arr = [[str(item) if item is not None else '' for item in row] for row in formatted_arr]
+    else:
+        str_formatted_arr = [[str(index), str(value)] for index, value in formatted_arr]
     
     # Calculate column widths (including headers)
     col_widths = [
@@ -64,6 +67,13 @@ def log_array_as_table(arr, headers=None):
         format_row(headers),  # Header row
         "-" * (sum(col_widths) + 3 * (len(col_widths) - 1))  # Separator
     ]
-    table_lines.extend(format_row(row) for row in str_formatted_arr)
+    
+    # If nested and headers contain non-numeric indices, use the nested item's column
+    def process_row(row):
+        if is_nested and not all(isinstance(h, int) for h in headers):
+            return [row[headers.index(0)] if 0 in headers else row[1]]
+        return row
+    
+    table_lines.extend(format_row(process_row(row)) for row in str_formatted_arr)
     
     return "\n".join(table_lines)
