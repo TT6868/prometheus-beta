@@ -50,7 +50,7 @@ def test_extract_zip_files_default_path():
         zip_path = create_test_zip(test_files)
         
         try:
-            extracted_files = extract_zip_files(zip_path)
+            extracted_files = extract_zip_files(zip_path, os.getcwd())
             
             # Check file is extracted in same directory as zip
             assert len(extracted_files) == 1
