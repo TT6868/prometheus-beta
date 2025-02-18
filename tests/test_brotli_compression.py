@@ -31,6 +31,17 @@ def test_compression_qualities():
     
     assert len(compressed_min) >= len(compressed_max)
 
+def test_compression_modes():
+    """Test different compression modes"""
+    data = b'Test data for compression mode checks'
+    
+    compressed_generic = compress_brotli(data, mode=brotli.MODE_GENERIC)
+    compressed_text = compress_brotli(data, mode=brotli.MODE_TEXT)
+    compressed_font = compress_brotli(data, mode=brotli.MODE_FONT)
+    
+    # Ensure different modes produce different compression
+    assert len(set([len(compressed_generic), len(compressed_text), len(compressed_font)])) > 1
+
 def test_invalid_input_types():
     """Test error handling for invalid input types"""
     with pytest.raises(TypeError):
@@ -46,6 +57,11 @@ def test_invalid_compression_quality():
     
     with pytest.raises(ValueError):
         compress_brotli(b'test', quality=-1)
+
+def test_invalid_compression_mode():
+    """Test error handling for invalid compression mode"""
+    with pytest.raises(ValueError):
+        compress_brotli(b'test', mode=999)
 
 def test_decompression_error():
     """Test error handling for invalid compressed data"""
