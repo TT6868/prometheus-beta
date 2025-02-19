@@ -25,19 +25,17 @@ class LZHCompressor:
         # Create output buffer
         output = bytearray()
         
-        # Sliding window and look-ahead buffer parameters
-        window_size = 4096
-        look_ahead_size = 16
+        # Sliding window parameters
+        window_size = 256
+        look_ahead_size = 8
         
-        # Current position in input data
         current_pos = 0
         
         while current_pos < len(data):
-            # Find longest match in sliding window
+            # Find the best match in the sliding window
             best_length = 0
             best_offset = 0
             
-            # Search backwards in the sliding window
             search_start = max(0, current_pos - window_size)
             search_end = current_pos
             
@@ -55,13 +53,14 @@ class LZHCompressor:
             
             # Write compression token
             if best_length > 2:
-                # Encode match as (offset, length)
-                output.extend(struct.pack('<H', best_offset))
+                # Mark as compressed token
+                output.append(0xFF)  # Compression flag
+                output.extend(struct.pack('<B', best_offset))
                 output.extend(struct.pack('<B', best_length))
                 current_pos += best_length
             else:
                 # Literal byte
-                output.extend(struct.pack('<B', data[current_pos]))
+                output.append(data[current_pos])
                 current_pos += 1
         
         return bytes(output)
@@ -81,50 +80,30 @@ class LZHCompressor:
             raise TypeError("Input must be bytes")
         
         output = bytearray()
-        input_stream = io.BytesIO(compressed_data)
+        i = 0
         
-        while input_stream.tell() < len(compressed_data):
-            try:
-                # Try to read match token
-                offset_bytes = input_stream.read(2)
-                length_byte = input_stream.read(1)
+        while i < len(compressed_data):
+            if compressed_data[i] == 0xFF:  # Compression flag
+                if i + 2 >= len(compressed_data):
+                    break
                 
-                if not offset_bytes or not length_byte:
-                    # If we can't read full token, treat as literal
-                    input_stream.seek(input_stream.tell() - 2)
-                    literal_byte = input_stream.read(1)
-                    output.extend(literal_byte)
-                    continue
+                # Extract offset and length
+                offset = compressed_data[i + 1]
+                length = compressed_data[i + 2]
                 
-                offset = struct.unpack('<H', offset_bytes)[0]
-                length = struct.unpack('B', length_byte)[0]
-                
-                # Retrieve previously written data
+                # Retrieve previous data
                 start_pos = len(output) - offset
                 
-                # Handle case where offset is beyond current output
-                if start_pos < 0:
-                    # Treat as literal
-                    input_stream.seek(input_stream.tell() - 3)
-                    literal_byte = input_stream.read(1)
-                    output.extend(literal_byte)
-                    continue
+                # Reconstruct the matched sequence
+                for j in range(length):
+                    if start_pos + j < 0:
+                        break
+                    output.append(output[start_pos + j])
                 
-                for i in range(length):
-                    if start_pos + i < 0:
-                        break
-                    byte = output[start_pos + i]
-                    output.append(byte)
-            
-            except (struct.error, IndexError):
-                # If any error occurs, try to read as literal
-                try:
-                    input_stream.seek(input_stream.tell() - 2)
-                    literal_byte = input_stream.read(1)
-                    if not literal_byte:
-                        break
-                    output.extend(literal_byte)
-                except Exception:
-                    break
+                i += 3
+            else:
+                # Literal byte
+                output.append(compressed_data[i])
+                i += 1
         
         return bytes(output)
