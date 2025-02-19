@@ -56,7 +56,8 @@ class LZHCompressor:
             # Write compression token
             if best_length > 2:
                 # Encode match as (offset, length)
-                output.write(struct.pack('&lt;HB', best_offset, best_length))
+                output.write(struct.pack('<H', best_offset))
+                output.write(struct.pack('<B', best_length))
                 current_pos += best_length
             else:
                 # Literal byte
@@ -92,7 +93,7 @@ class LZHCompressor:
                 if not offset_bytes or not length_byte:
                     break
                 
-                offset = struct.unpack('&lt;H', offset_bytes)[0]
+                offset = struct.unpack('<H', offset_bytes)[0]
                 length = struct.unpack('B', length_byte)[0]
                 
                 # Retrieve previously written data
