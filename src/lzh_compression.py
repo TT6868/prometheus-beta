@@ -22,7 +22,7 @@ class LZHCompressor:
         if not isinstance(data, bytes):
             raise TypeError("Input must be bytes")
         
-        # For small datasets, it's more efficient to return the original data
+        # If data is too small, return as-is
         if len(data) < 32:
             return data
         
@@ -30,8 +30,8 @@ class LZHCompressor:
         output = bytearray()
         
         # Sliding window parameters
-        window_size = 1024
-        look_ahead_size = 16
+        window_size = 4096
+        look_ahead_size = 32
         
         current_pos = 0
         
@@ -51,13 +51,13 @@ class LZHCompressor:
                        data[offset + match_length] == data[current_pos + match_length]):
                     match_length += 1
                 
-                # Prefer longer matches to reduce token overhead
+                # More aggressive matching
                 if match_length > best_length:
                     best_length = match_length
                     best_offset = current_pos - offset
             
             # Write compression token
-            if best_length > 3:  # More selective about compression
+            if best_length > 4:
                 # Mark as compressed token
                 output.append(0xFF)  # Compression flag
                 output.extend(struct.pack('<H', best_offset))  # Use 2-byte unsigned short
@@ -84,7 +84,7 @@ class LZHCompressor:
         if not isinstance(compressed_data, bytes):
             raise TypeError("Input must be bytes")
         
-        # If data is not compressed, return as-is
+        # If data doesn't look compressed or is too small, return as-is
         if len(compressed_data) <= 4 or 0xFF not in compressed_data:
             return compressed_data
         
@@ -98,17 +98,29 @@ class LZHCompressor:
                     output.extend(compressed_data[i:])
                     break
                 
-                # Extract offset and length (2-byte unsigned short for offset)
-                offset = struct.unpack('<H', compressed_data[i+1:i+3])[0]
-                length = compressed_data[i + 3]
+                # Extract offset and length
+                try:
+                    offset = struct.unpack('<H', compressed_data[i+1:i+3])[0]
+                    length = compressed_data[i + 3]
+                except struct.error:
+                    # If struct unpacking fails, treat as literal
+                    output.append(compressed_data[i])
+                    i += 1
+                    continue
+                
+                # Sanity check for offset and length
+                if length <= 0 or offset <= 0 or offset > len(output):
+                    output.append(compressed_data[i])
+                    i += 1
+                    continue
                 
                 # Retrieve previous data
                 start_pos = len(output) - offset
                 
-                # Reconstruct the matched sequence
+                # Reconstruct the matched sequence with safety checks
                 for j in range(length):
-                    if start_pos + j < 0:
-                        continue
+                    if start_pos + j < 0 or start_pos + j >= len(output):
+                        break
                     try:
                         output.append(output[start_pos + j])
                     except IndexError:
