@@ -22,12 +22,16 @@ class LZHCompressor:
         if not isinstance(data, bytes):
             raise TypeError("Input must be bytes")
         
+        # For small datasets, it's more efficient to return the original data
+        if len(data) < 32:
+            return data
+        
         # Create output buffer
         output = bytearray()
         
         # Sliding window parameters
-        window_size = 512
-        look_ahead_size = 8
+        window_size = 1024
+        look_ahead_size = 16
         
         current_pos = 0
         
@@ -80,12 +84,18 @@ class LZHCompressor:
         if not isinstance(compressed_data, bytes):
             raise TypeError("Input must be bytes")
         
+        # If data is not compressed, return as-is
+        if len(compressed_data) <= 4 or 0xFF not in compressed_data:
+            return compressed_data
+        
         output = bytearray()
         i = 0
         
         while i < len(compressed_data):
             if compressed_data[i] == 0xFF:  # Compression flag
                 if i + 3 >= len(compressed_data):
+                    # If truncated, add remaining bytes as literal
+                    output.extend(compressed_data[i:])
                     break
                 
                 # Extract offset and length (2-byte unsigned short for offset)
@@ -98,7 +108,7 @@ class LZHCompressor:
                 # Reconstruct the matched sequence
                 for j in range(length):
                     if start_pos + j < 0:
-                        break
+                        continue
                     try:
                         output.append(output[start_pos + j])
                     except IndexError:
