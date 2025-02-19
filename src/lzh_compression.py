@@ -26,8 +26,8 @@ class LZHCompressor:
         output = bytearray()
         
         # Sliding window parameters
-        window_size = 256
-        look_ahead_size = 8
+        window_size = 4096
+        look_ahead_size = 16
         
         current_pos = 0
         
@@ -55,7 +55,7 @@ class LZHCompressor:
             if best_length > 2:
                 # Mark as compressed token
                 output.append(0xFF)  # Compression flag
-                output.extend(struct.pack('<B', best_offset))
+                output.extend(struct.pack('<H', best_offset))  # Use 2-byte unsigned short
                 output.extend(struct.pack('<B', best_length))
                 current_pos += best_length
             else:
@@ -84,12 +84,12 @@ class LZHCompressor:
         
         while i < len(compressed_data):
             if compressed_data[i] == 0xFF:  # Compression flag
-                if i + 2 >= len(compressed_data):
+                if i + 3 >= len(compressed_data):
                     break
                 
-                # Extract offset and length
-                offset = compressed_data[i + 1]
-                length = compressed_data[i + 2]
+                # Extract offset and length (2-byte unsigned short for offset)
+                offset = struct.unpack('<H', compressed_data[i+1:i+3])[0]
+                length = compressed_data[i + 3]
                 
                 # Retrieve previous data
                 start_pos = len(output) - offset
@@ -100,7 +100,7 @@ class LZHCompressor:
                         break
                     output.append(output[start_pos + j])
                 
-                i += 3
+                i += 4
             else:
                 # Literal byte
                 output.append(compressed_data[i])
