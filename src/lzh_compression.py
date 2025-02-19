@@ -26,8 +26,8 @@ class LZHCompressor:
         output = bytearray()
         
         # Sliding window parameters
-        window_size = 4096
-        look_ahead_size = 16
+        window_size = 512
+        look_ahead_size = 8
         
         current_pos = 0
         
@@ -47,12 +47,13 @@ class LZHCompressor:
                        data[offset + match_length] == data[current_pos + match_length]):
                     match_length += 1
                 
+                # Prefer longer matches to reduce token overhead
                 if match_length > best_length:
                     best_length = match_length
                     best_offset = current_pos - offset
             
             # Write compression token
-            if best_length > 2:
+            if best_length > 3:  # More selective about compression
                 # Mark as compressed token
                 output.append(0xFF)  # Compression flag
                 output.extend(struct.pack('<H', best_offset))  # Use 2-byte unsigned short
@@ -98,7 +99,10 @@ class LZHCompressor:
                 for j in range(length):
                     if start_pos + j < 0:
                         break
-                    output.append(output[start_pos + j])
+                    try:
+                        output.append(output[start_pos + j])
+                    except IndexError:
+                        break
                 
                 i += 4
             else:
