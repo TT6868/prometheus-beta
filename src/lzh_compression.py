@@ -6,7 +6,7 @@ class LZHCompressor:
     LZH (Lempel-Ziv-Huffman) Compression Implementation
     
     This is a basic implementation of LZH compression algorithm.
-    Designed to handle byte-level preservation.
+    Designed for precise byte-level reproduction.
     """
     
     @staticmethod
@@ -23,15 +23,11 @@ class LZHCompressor:
         if not isinstance(data, bytes):
             raise TypeError("Input must be bytes")
         
-        # For small or non-compressible data, return as-is
+        # If data is too small, return as-is
         if len(data) < 32:
             return data
         
         output = bytearray()
-        original_length = len(data)
-        
-        # Add original length as header
-        output.extend(struct.pack('<I', original_length))
         
         current_pos = 0
         window_size = 4096
@@ -85,18 +81,12 @@ class LZHCompressor:
         if not isinstance(compressed_data, bytes):
             raise TypeError("Input must be bytes")
         
-        # If data looks uncompressed or is too small, return as-is
-        if len(compressed_data) <= 4 or 0xFF not in compressed_data:
-            return compressed_data
-        
-        # Extract original length
-        try:
-            original_length = struct.unpack('<I', compressed_data[:4])[0]
-        except struct.error:
+        # If data looks uncompressed, return as-is
+        if 0xFF not in compressed_data:
             return compressed_data
         
         output = bytearray()
-        i = 4  # Start after length header
+        i = 0
         
         while i < len(compressed_data):
             if compressed_data[i] == 0xFF:  # Compression flag
@@ -112,16 +102,10 @@ class LZHCompressor:
                     i += 1
                     continue
                 
-                # Sanity checks
-                if length <= 0 or offset <= 0 or offset > len(output):
-                    output.append(compressed_data[i])
-                    i += 1
-                    continue
-                
                 # Reconstruct matched sequence
                 start_pos = len(output) - offset
                 for j in range(length):
-                    if start_pos + j < 0 or start_pos + j >= len(output):
+                    if start_pos + j < 0:
                         break
                     try:
                         output.append(output[start_pos + j])
@@ -134,5 +118,4 @@ class LZHCompressor:
                 output.append(compressed_data[i])
                 i += 1
         
-        # Ensure output matches original length if possible
-        return bytes(output[:original_length])
+        return bytes(output)
