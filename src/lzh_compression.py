@@ -23,7 +23,7 @@ class LZHCompressor:
             raise TypeError("Input must be bytes")
         
         # Create output buffer
-        output = io.BytesIO()
+        output = bytearray()
         
         # Sliding window and look-ahead buffer parameters
         window_size = 4096
@@ -56,15 +56,15 @@ class LZHCompressor:
             # Write compression token
             if best_length > 2:
                 # Encode match as (offset, length)
-                output.write(struct.pack('<H', best_offset))
-                output.write(struct.pack('<B', best_length))
+                output.extend(struct.pack('<H', best_offset))
+                output.extend(struct.pack('<B', best_length))
                 current_pos += best_length
             else:
                 # Literal byte
-                output.write(struct.pack('B', data[current_pos]))
+                output.extend(struct.pack('<B', data[current_pos]))
                 current_pos += 1
         
-        return output.getvalue()
+        return bytes(output)
     
     @staticmethod
     def decompress(compressed_data):
@@ -80,38 +80,51 @@ class LZHCompressor:
         if not isinstance(compressed_data, bytes):
             raise TypeError("Input must be bytes")
         
-        output = io.BytesIO()
+        output = bytearray()
         input_stream = io.BytesIO(compressed_data)
         
-        while True:
-            # Try to read token
+        while input_stream.tell() < len(compressed_data):
             try:
-                # Attempt to read match token
+                # Try to read match token
                 offset_bytes = input_stream.read(2)
                 length_byte = input_stream.read(1)
                 
                 if not offset_bytes or not length_byte:
-                    break
+                    # If we can't read full token, treat as literal
+                    input_stream.seek(input_stream.tell() - 2)
+                    literal_byte = input_stream.read(1)
+                    output.extend(literal_byte)
+                    continue
                 
                 offset = struct.unpack('<H', offset_bytes)[0]
                 length = struct.unpack('B', length_byte)[0]
                 
                 # Retrieve previously written data
-                current_output = output.getvalue()
-                start_pos = len(current_output) - offset
+                start_pos = len(output) - offset
+                
+                # Handle case where offset is beyond current output
+                if start_pos < 0:
+                    # Treat as literal
+                    input_stream.seek(input_stream.tell() - 3)
+                    literal_byte = input_stream.read(1)
+                    output.extend(literal_byte)
+                    continue
                 
                 for i in range(length):
-                    byte = current_output[start_pos + i]
-                    output.write(struct.pack('B', byte))
+                    if start_pos + i < 0:
+                        break
+                    byte = output[start_pos + i]
+                    output.append(byte)
             
             except (struct.error, IndexError):
-                # If match token fails, try literal byte
+                # If any error occurs, try to read as literal
                 try:
+                    input_stream.seek(input_stream.tell() - 2)
                     literal_byte = input_stream.read(1)
                     if not literal_byte:
                         break
-                    output.write(literal_byte)
+                    output.extend(literal_byte)
                 except Exception:
                     break
         
-        return output.getvalue()
+        return bytes(output)
